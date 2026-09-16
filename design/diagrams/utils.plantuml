@@ -1,0 +1,346 @@
+@startuml "PROJET FROMAGE - utils"
+
+
+' ================================================
+'
+'				UTILS
+'
+' ================================================
+
+package utils {
+
+	class MyLogger {
+		- {static} instance: Logger
+		__
+		.. methods ..
+		+ {static} getInstance(): MyLogger
+	}
+
+	' =====================
+	'
+	'	CONFIG
+	'
+	' =====================
+	package config {
+		class ConfigReader {
+			- {static} properties: Properties
+			__
+			+ {static} get(property: String): String
+			+ {static} getInt(property: String): int
+			+ {static} getFloat(property: String): Float
+			+ {static} getBool(property: String): boolean
+			+ {static} getFish(): 🐟
+		}
+	}
+
+	' =====================
+	'
+	'	COORDSCHOOSER
+	'
+	' =====================
+	package coordsChooser {
+		
+		interface CoordsChooser {
+			+ choose(msg: String, maxCoords: Tuple2<Integer, Integer>): Tuple2<Integer, Integer>
+		}
+
+		class InteractiveCoordsChooser implements CoordsChooser {
+			+ choose(msg: String, maxCoords: Tuple2<Integer, Integer>): Tuple2<Integer, Integer>
+		}
+
+		class RandomCoordsChooser implements CoordsChooser {
+			+ choose(msg: String, maxCoords: Tuple2<Integer, Integer>): Tuple2<Integer, Integer>
+		}
+	}
+
+	' =====================
+	'
+	'	DATASTRUCTURES
+	'
+	' =====================
+	package datastructures {
+		class DoublyLinkedList<T> {
+			# head: Node<T>
+			# tail: Node<T>
+			__
+			+ DoublyLinkedList()
+			.. getters ..
+			+ getHead(): Node<T>
+			+ getTail(): Node<T>
+			+ isEmpty(): boolean
+			.. methods ..
+			+ insertHead(val: Node<T>): void
+			+ insertTail(val: Node<T>): void
+		}
+
+		abstract Node<T> {
+			# prev: Node<T>
+			# next: Node<T>
+			# list: DoublyLinkedList<T>
+			# value: T
+			__
+			+ Node(prev: Node<T>, next: Node<T>, value: T, list: DoublyLinkedList<T>)
+			+ Node(value: T, list: DoublyLinkedList<T>)
+			.. getters ..
+			+ getList(): DoublyLinkedList<T>
+			.. setters ..
+			+ setNext(nextNode: Node<T>): void
+			+ setPrev(prevNode: Node<T>): void
+		}
+
+		class Tuple2<A, B> {
+			- value1: A
+			- value2: B
+			__
+			+ Tuple2(value1: A, value2: B)
+			.. getters ..
+			+ first(): A
+			+ second(): B
+		}
+	}
+
+	' =====================
+	'
+	'	DEV
+	'
+	' =====================
+	package dev {
+
+		Exception AwaitingImplementationByAFishException {
+
+		}
+		Exception AwaitingImplementationByBenjaminException {
+
+		}
+		Exception AwaitingImplementationByException {
+
+		}
+		Exception AwaitingImplementationByFrancoisException {
+
+		}
+		Exception AwaitingImplementationByMarkoException {
+
+		}
+		Exception AwaitingImplementationByWahabException {
+
+		}
+		Exception INeedHelpException {
+
+		}
+	}
+
+	' =====================
+	'
+	'	IO
+	'
+	' =====================
+	package io {
+		enum Color {
+			- code: String
+			__
+			none
+			black
+			blue
+			red
+			yellow
+			cyan
+			__
+			- Color(code: String)
+			.. getters ..
+			+ getCode(): String
+		}
+
+		class ConsoleUtils {
+			- ConsoleUtils()
+			__
+			+ {static} cursorToTopLeft(): void
+			+ {static} clearConsole(): void
+			+ {static} hideCursor(): void
+			+ {static} showCursor(): void
+			+ {static} cursorTo(row: int, column: int): void
+			+ {static} colorPrintLn(output: String, col: Color): void
+			+ {static} colorPrint(output: String, col: Color): void
+			+ {static} colorString(output: String, col: Color): String
+			+ {static} flushBuffer(): void
+		}
+
+		Class Input {
+			/!\ Implementation by teachers
+			See utils.listchooser#README.md
+		}
+	}
+
+	' =====================
+	'
+	'	LISTCHOOSER
+	'
+	' =====================
+	package listchooser {
+		class InteractiveListChooser extends ListChooser {
+			/!\ Implementation by teachers
+			see utils.listchooser#README.md
+		}
+		abstract ListChooser {
+			/!\ Implementation by teachers
+			see utils.listchooser#README.md
+		}
+		class RandomListChooser extends ListChooser {
+			/!\ Implementation by teachers
+			see utils.listchooser#README.md
+		}
+	}
+
+	' =====================
+	'
+	'	MATHS
+	'
+	' =====================
+	package maths {
+		class Comparator {
+			+ {static} delta: float
+			__
+			- Comparator()
+			.. methods ..
+			+ {static} compFloat(a: float, b: float): int
+			+ {static} compFloat(a: double, b: double): int
+			+ {static} compFloat(a: double, b: float): int
+			+ {static} compFloat(a: float, b: double): int
+		}
+
+		class RandomUtils {
+			- {static} RAND_SEED: long
+			- {static} rand: Random
+			__
+			- RandomUtils()
+			.. methods ..
+			+ {static} randInt(): int
+			+ {static} randInt(min: int, max: int): int
+			+ {static} randCoords(maxX: int, maxY: int): Tuple2<Integer, Integer>
+		}
+	}
+
+	' =====================
+	'
+	'	PLANE2D
+	'
+	' =====================
+	package plane2d {
+		enum Direction {
+			- coords: Vector2f
+			- opposite: Direction
+			- {static} random: Random
+			__
+			UP
+			DOWN
+			LEFT
+			RIGHT
+			__
+			- Direction(x: int, y: int)
+			.. getters ..
+			+ opposite(): Direction
+			+ getX(): int
+			+ getY(): int
+			+ getVect(): Vector2f
+			.. methods ..
+			+ {static} random(): Direction
+			+ {static} fromCoords(x: int, y: int): Direction
+			+ {static} randomExcept(directions: Direction[]): Direction
+			- {static} randomExceptNoCheck(directions: Direction[]): Direction
+		}
+
+		enum PathType {
+			- d1: Direction
+			- d2: Direction
+			- c: char
+			__
+			LEFT_RIGHT
+			LEFT_UP
+			LEFT_DOWN
+			RIGHT_UP
+			RIGHT_DOWN
+			UP_DOWN
+			__
+			- PathType(d1: Direction, d2: Direction, c: char)
+			.. getters ..
+			+ getDirections(): Direction[]
+			+ getChar(): char
+			.. methods ..
+			+ {static} fromDirections(a: Direction, b: Direction): PathType
+		}
+
+		class Vector2f {
+			+ x: float
+			+ y: float
+			- cached_dist_sq: float
+			- cached_dist: float
+			__
+			+ Vector2f(x: float, y: float)
+			+ Vector2f(x: double, y: double)
+			.. getters ..
+			+ x(): float
+			+ y(): float
+			.. setters ..
+			+ setX(x: float)
+			+ setY(y: float)
+			.. methods ..
+			+ mult(v: Vector2f): Vector2f
+			+ mult(f: float): Vector2f
+			+ diff(v: Vector2f): Vector2f
+			+ compSum(): float
+			+ addScalar(value: float): Vector2f
+			+ addVector(v: Vector2f): Vector2f
+			+ toString(): String
+		}
+
+		' =====================
+		'	COORDSITERATOR
+		' =====================
+
+		package coordsiterator {
+			abstract CoordsIterator {
+				# maxWidth: int
+				# maxHeight: int
+				# x: int
+				# y: int
+				# {static} random: Random
+				# direction: Direction
+				# lastDirection: Direction
+				__
+				+ CoordsIterator(maxWidth: int, maxHeight: int, direction: Direction)
+				.. getters ..
+				+ getMaxWidth(): int
+				+ getMaxHeight(): int
+				+ getY(): int
+				+ getX(): int
+				+ getDirection(): Direction
+				.. methods ..
+				+ hasInDirection(direction: direciton): boolean
+				+ hasNext(): boolean
+				+ hasPrevious(): boolean
+				+ {abstract} next(): void
+				+ {abstract} previous(): void
+				+ moveInDirection(direction: Direction): void
+			}
+
+			Exception CoordsIteratorReachedLimitException {
+				+ CoordsIteratorReachedLimitException(message: String)
+			}
+
+			class RandomCoordsIterator extends CoordsIterator {
+				+ RandomCoordsIterator(maxWidth: int, maxHeight: direction: Direction)
+				.. methods ..
+				+ next(): void
+				+ previous(): void
+				# choseRandomDirection(direction: Direction): Direction
+			}
+
+			class StraightCoordsIterator extends CoordsIterator {
+				+ StraightCoordsIterator(maxWidth: int, maxHeight: direction: Direction)
+				.. methods ..
+				+ next(): void
+				+ previous(): void
+			}
+		}
+	}
+}
+@enduml

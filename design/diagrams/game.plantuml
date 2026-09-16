@@ -1,0 +1,755 @@
+@startuml "PROJET FROMAGE - game"
+
+top to bottom direction
+
+' ================================================
+'
+'				GAME
+'
+' ================================================
+package game {
+
+	class Game {
+		- {static} instance: Game
+		- life: int
+		- players: List<Player>
+		- board Board
+		- displays: List<Display>
+		- shop: Shop
+		- nbWave: int
+		- waveGenerator: WaveGenerator
+		- lastGeneratedWave: Wave
+		- deltaT: double
+		- globalTickRate: int
+		- waveLoopStartTime: long
+		- tickCount: long
+		__
+		+ Game(initialLife: int, board: Board)
+		.. static instance ..
+		+ {static} setInstance(initialLife: int, board: Board)
+		+ {static} instance(): Game
+		.. getters ..
+		+ getLife(): int
+		+ getPlayers(): List<Player>
+		+ getBoard(): Board
+		+ getDisplays(): List<Display>
+		+ getShop(): Shop
+		+ getGoalTickRate(): int
+		+ getDeltaT(): double
+		+ getNbWave(): int
+		+ getWaveGenerator(): WaveGenerator
+		+ getLastGeneratedWave(): Wave
+		+ getTickCount(): long
+		+ getElapsedSeconds(): double
+		.. setters ..
+		+ setWaveGenerator(waveGenerator: WaveGenerator)
+		.. methods ..
+		+ startWave()
+		+ generateNextWave(): Wave
+		+ tick()
+		- benchmarkTiming()
+		+ hasGameEnded(): boolean
+		+ hasWaveEnded(): boolean
+		+ addPlayer(p: Player)
+		+ <T extends Display> addDisplay(DC: Class<T>): T
+		+ addDisplay(d: Display)
+		+ <T extends Display> removeDisplay(): boolean
+		+ removeDisplay(d: Display): boolean
+		- waitUntilNextTick()
+	}
+
+	class Player {
+		- money: int
+		- name: String
+		__
+		+ Player(name: String, initialMoney: int)
+		.. getters ..
+		+ getName(): String
+		+ getMoney(): int
+	}
+
+	' =====================
+	'
+	'	ACTIONS
+	'
+	' =====================
+	package actions {
+		abstract Action {
+			__
+			+ Action()
+			.. methods ..
+			+ {abstract} isExecutable(): boolean
+			+ {abstract} execAction()
+		}
+		class ActionBuyTurret extends Action {
+			- turretActionLC: ListChooser<ActionBuyTurret>
+			# coordsChooser: CoordsChooser
+			# turretClass: Class<? extends Turret>
+			__
+			+ ActionBuyTurret(turretActionListChooser: ListChooser<ActionBuyTurret>, coordsChooser: CoordsChooser, turretClass: Class<? extends Turret>)
+			+ ActionBuyTurret(turretActionListChooser: ListChooser<ActionBuyTurret>, coordsChooser: CoordsChooser)
+			.. methods ..
+			# getPlacementCoords(): Tuple2<Integer, Integer>
+			+ isExecutable(): boolean
+			# doBuy(xy: Tuple2<Integer, Integer>)
+			+ execAction()
+		}
+
+		package templates {
+			class ActionDisplay extends game.actions.Action {
+				__
+				+ ActionDisplay()
+				.. methods ..
+				+ isExecutable(): boolean
+				+ execAction()
+			}
+			class ActionDowngradeTurret extends game.actions.Action {
+				- turretListChooser: ListChooser<Turret>
+				- downgradeListChooser: ListChooser<String>
+				__
+				+ ActionDowngradeTurret(turretListChooser: ListChooser<Turret>, downgradeListChooser: ListChooser<String>)
+				.. methods ..
+				+ isExecutable(): boolean
+				+ execAction()
+			}
+			class ActionExit extends game.actions.Action {
+				__
+				+ ActionExit()
+				.. methods ..
+				+ isExecutable(): boolean
+				+ execAction()
+			}
+			class ActionNextWave extends game.actions.Action {
+				__
+				+ ActionNextWave()
+				.. methods ..
+				+ isExecutable(): boolean
+				+ execAction()
+			}
+			class ActionSellTurret extends game.actions.Action {
+				- listChooser: ListChooser<Turret>
+				__
+				+ ActionSellTurret(listChooser: ListChooser<Turret>)
+				.. methods ..
+				+ isExecutable(): boolean
+				+ execAction()
+			}
+			class ActionUpgradeTurret extends game.actions.Action {
+				- turretListChooser: ListChooser<Turret>
+				- upgradeListChooser: ListChooser<String>
+				__
+				+ ActionUpgradeTurret(turretListChooser: ListChooser<Turret>, upgradeListChooser: ListChooser<String>)
+				.. methods ..
+				+ isExecutable(): boolean
+				+ execAction()
+			}
+
+			package turrets {
+				class ActionBuy?Turret extends game.actions.ActionBuyTurret {
+					Template d'achat de turret, un par type de turret achetable.
+					__
+					+ ActionBuy?Turret(random: boolean)
+					+ ActionBuy?Turret()
+					.. methods ..
+					+ isExecutable(): boolean
+				}
+			}
+		}
+	}
+
+	' =====================
+	'
+	'	BOARDS
+	'
+	' =====================
+	package board{
+		abstract Board {
+			# cells: Cell[][]
+			# roads: List<Road>
+			# turrets: List<Turret>
+			__
+			+ Board(x: int, y: int)
+			.. getters ..
+			+ getWidth(): int
+			+ getHeight(): int
+			+ getRoads(): List<Road>
+			+ getCell(x: int, y: int): Cell
+			+ getTurrets(): List<Turret>
+			.. setters ..
+			+ setCell(x: int, y: int, cell: Cell)
+			+ addBloon(bloon: Class<? extends Bloon>): Bloon
+			+ <T extends Turret> addTurret(TClass: Class<T>, coords: Tuple2<Integer, Integer>)
+			.. methods ..
+			+ getBloonsInRange(range: float, x: float, y: float): List<Bloon>
+			# generatePath(ci: CoordsIterator, cellClass: Class<? extends Cell>): Road
+			# fillBoard()
+			+ hasBloonsLeft(): boolean
+		}
+
+		class DefaultBoard extends Board {
+			+ DefaultBoard()
+			+ DefaultBoard(sizeX: int, sizeY: int)
+			+ DefaultBoard(sizeX: int, sizeY: int, direction: Direction)
+		}
+
+		class MultiPathBoard extends Board {
+			+ MultiPathBoard(sizeX: int, sizeY: int, nbRoads: int)
+			# generateStraightPaths(): List<Road>
+		}
+	}
+
+	' =====================
+	'
+	'	CELLS
+	'
+	' =====================
+	package cells{
+		abstract Cell {
+			# bloons: List<Bloon>
+			# x: int
+			# y: int
+			# col: Color
+			__
+			+ Cell(x: int, y: int)
+			.. getters ..
+			+ getX(): int
+			+ getY(): int
+			+ getCoords(): Vector2f
+			+ getBloons(): List<Bloon>
+			+ getColor(): Color
+			+ getVectorCenter(): Vector2f
+			+ getExitBorderCoords(dir: Direction): Vector2f
+			.. setters ..
+			+ addBloon(b: Bloon)
+			.. methods ..
+			+ removeBloon(b: Bloon)
+			+ removeTurret(turret: Turret)
+			+ hasBloons(): boolean
+			+ canPlace(GC: Class<? extends GameObject>): boolean
+			+ canPlace(go: GameObject): boolean
+			+ equals(o: Object): boolean
+			+ coordsToString(): String
+			+ toString(): String
+			+ toColoredString(): String
+			+ {static} <T extends Cell> createCell(cellClass: Class<T>, x: int, y: int): <T extends Cell> T
+		}
+
+		class RoadCell extends Cell {
+			+ RoadCell(x: int, y: int)
+			.. methods ..
+			+ toString(): String
+		}
+
+		class TurretCell extends Cell {
+			- turrets: List<Turret>
+			__
+			+ TurretCell(x: int, y: int)
+			.. getters ..
+			+ getTurrets(): List<Turret>
+			.. methods ..
+			+ addTurret(t: Turret)
+			+ canPlace(GC: Class<? extends GameObject>): boolean
+			+ removeTurret(turret: Turret): boolean
+			+ toString(): String
+		}
+	}
+
+	' =====================
+	'
+	'	CONTROLLER
+	'
+	' =====================
+	package controller {
+		class AutoGameController implements GameController {
+			- {final} random: Random
+			- {final} buyAction: ActionBuyTurret
+			- {final} upgradeAction: ActionUpgradeTurret
+			- {final} downgradeAction: ActionDowngradeTurret
+			- {final} sellAction: ActionSellTurret
+			- {final} displayAction: ActionDisplay
+			__
+			+ AutoGameController()
+			.. methods ..
+			+ playPreparationPhase()
+			+ playOneDecision(): boolean
+			- canBuyAnyTurret(): boolean
+			- buyAction(): boolean
+		}
+
+		interface GameController {
+			__
+			.. methods ..
+			{static} printPreparationHeader()
+			{static} printTurretStates()
+			{static} printNextWavePreview()
+			{static} runActionIfPossible(action: Action, unavailableMessage: String): boolean
+		}
+
+		class ManualGameController implements GameController {
+			- {final} menuChooser: InteractiveListChooser<String>
+			- {final} buyAction: ActionBuyTurret
+			- {final} upgradeAction: ActionUpgradeTurret
+			- {final} downgradeAction: ActionDowngradeTurret
+			- {final} sellAction: ActionSellTurret
+			- {final} displayAction: ActionDisplay
+			__
+			+ ManualGameController()
+			.. methods ..
+			+ playPreparationPhase()
+			- buildChoices(): List<String>
+			- canBuyAnyTurret(): boolean
+		}
+	}
+
+	' ======================
+	'
+	'	DISPLAYS
+	'
+	' =====================
+	package displays{
+		abstract Display {
+			+ Display()
+			.. methods ..
+			+ {abstract} display()
+			+ {abstract} repaint()
+			+ {abstract} close()
+		}
+
+		' =====================
+		'	CLI
+		' =====================
+		package CLI {
+			class BasicColorDisplay extends DisplayCLI {
+				.. methods ..
+				+ display()
+			}
+
+			class BasicDisplay extends DisplayCLI {
+				.. methods ..
+				+ display()
+			}
+
+			abstract DisplayCLI extends game.displays.Display {
+				.. methods ..
+				+ fillStringBoard(tmpBoard: String[][]): String[][]
+				+ repaint()
+				+ displayStatus()
+			}
+
+			class FancyDisplay extends DisplayCLI {
+				.. methods ..
+				+ display()
+				+ searchPaths(): String[][]
+			}
+
+			class StylizedDisplay extends DisplayCLI {
+				- {static} bloonStrings: String[]
+				__
+				.. methods ..
+				+ display()
+				+ stylizedPaths(): String[][]
+			}
+		}
+
+		package GUI {
+			class SwingDisplay extends game.displays.Display {
+				...
+			}
+			class TextureDisplay extends SwingDisplay {
+				...
+			}
+		}
+	}
+
+	' =====================
+	'
+	'	OBJECTS
+	'
+	' =====================
+	package objects{
+		class GameObject {
+			# coords: Vector2f
+			__
+			+ GameObject(coords: Vector2f)
+			.. getters ..
+			+ getCoords(): Vector2f
+			.. methods ..
+			+ {abstract} tick()
+		}
+
+		' =====================
+		'	BLOONS
+		' =====================
+		package bloons{
+			abstract Bloon extends game.objects.GameObject implements game.objects.turrets.Targetable {
+				+ speed: float
+				+ initialLife: int
+				# life: int
+				# tile: RoadTile
+				+ distToTheEnd: float
+				.. slow and freeze ..
+				# slowAmount: float
+				# slowDuration: int
+				# frozen: boolean
+				# freezeDuration: int
+				+ {static} HIT_BOX_RADIUS: float
+				__
+				+ Bloon(initialLife: int, speed: float, t: RoadTile)
+				.. getters ..
+				+ x(): float
+				+ y(): float
+				+ getCoords(): Vector2f
+				+ getDirection(): Vector2f
+				+ getDirectionVectorToBeReached(): Vector2f
+				+ getLife(): int
+				+ getTile(): RoadTile
+				+ getDistanceToTheEnd(): flaot
+				.. methods ..
+				+ setTileAndCenter(t: Tile)
+				+ setTile(t: Tile)
+				- updateCoords(v: Vector2f)
+				+ isDead(): boolean
+				+ move()
+				+ signedDistanceFromCellCenter(): float
+				+ takeDamage(amount: int)
+				+ {static} <T extends Bloon> createBloon(bloonClass: Class<T>, t: RoadTile): T
+				.. slow and freeze ..
+				+ applySlow(amount: float, duration: int)
+				+ applyFreeze(duration: int)
+				+ updateEffects()
+				+ getEffectiveSpeed(): float
+				+ isOutOfBoard(): boolean
+				+ tick()
+				+ isInHitRangeOf(p: Projectile): boolean
+				+ isCollidingWith(p: Projectile): boolean
+				+ directionFrom(p: Projectile): Vector2f
+				+ toString(): String
+			}
+
+			package templates {
+				class BlueBloon extends game.objects.bloons.Bloon {
+					- {static} SPEED: float
+					- {static} INITIAL_LIFE: int
+					__
+					+ BlueBloon(t: RoadTile)
+				}
+
+				class GreenBloon extends game.objects.bloons.Bloon {
+					- {static} SPEED: float
+					- {static} INITIAL_LIFE: int
+					__
+					+ GreenBloon(t: RoadTile)
+				}
+
+				class RedBloon extends game.objects.bloons.Bloon {
+					- {static} SPEED: float
+					- {static} INITIAL_LIFE: int
+					__
+					+ RedBloon(t: RoadTile)
+				}
+
+				class YellowBloon extends game.objects.bloons.Bloon {
+					- {static} SPEED: float
+					- {static} INITIAL_LIFE: int
+					__
+					+ YellowBloon(t: RoadTile)
+				}
+			}
+		}
+
+		' =====================
+		'	PROJECTILES
+		' =====================
+		package projectile {
+			class AreaProjectile extends Projectile {
+				# range: float
+				__
+				AreaProjectile(name: String, coords: Vector2f, target: Targetable, speed: float, range: float, damage: int)
+				AreaProjectile(name: String, coords: Vector2f, target: Targetable, speed: float, range: float)
+				.. getters ..
+				+ getRange(): float
+				.. setters ..
+				# setBloonsInRange(bloonsInRange: List<Bloon>)
+				.. methods ..
+				# computeBloonsInRange(): List<Bloon>
+				+ {static} create(target: Targetable): AreaProjectile
+
+			}
+			class Projectile extends game.objects.GameObject {
+				# name: String
+				# speed: float
+				# damage: int
+				# target: Targetable
+				# bloonsInRange: List<Bloon>
+				+ {static} HIT_RANGE: float
+				__
+				+ Projectile(name: String, coords: Vector2f, target: Targetable, speed: float, damage: int)
+				+ Projectile(name: String, coords: Vector2f, target: Targetable, speed: float)
+				.. getters ..
+				+ getName(): String
+				+ getSpeed(): float
+				+ getCoords(): Vector2f
+				+ getBloonsInRange(): List<Bloon>
+				+ isDead(): boolean
+				.. methods ..
+				+ move()
+				# applyEffect(b: Bloon)
+				# computeBloonsInRange(): List<Bloon>
+				+ tick()
+				+ {static} <T extends Projectile> create(projectileClass Class<T>, coords: Vector2f, target: Targetable): T
+				+ toString(): String
+			}
+		}
+		
+		' =====================
+		'   TURRETS
+		' =====================
+		package turrets {
+			interface Targetable
+			{
+				.. methods ..
+				+ directionFrom(p: Projectile): Vector2f
+				+ isInHitRangeOf(p: Projectile): boolean
+				+ isCollidingWith(p: Projectile): boolean
+				
+			}
+
+			note left : serves to distinguish between direction and true target(bloons, turrets): difference is : \n        when projectile has a vector as a target it will return true untill it reaches the target \n         and when projectile has a target as a bloon or anything else it will return false untill it reaches the target
+
+			abstract Turret extends game.objects.GameObject implements Targetable {
+				# cell: TurretCell
+				# cost: int
+				# nbTicksSinceLastShot: long
+				# range: FloatUpgradableAttribute
+				# projectileType: IntUpgradableAttribute
+				# projectiles: List<Projectile>
+				- {static} SELLING_RATE: float
+				__
+				Turret(c: TurretCell, cost: int, range: float, shootingCooldownTicks: int, projectileClass: Class<? extends Projectile>)
+				.. getters ..
+				+ getShootingCooldown(): int
+				+ getUpgradableShootingCooldown(): IntUpgradableAttribute
+				+ getRange(): float
+				+ getUpgradableRange(): FloatUpgradableAttribute
+				+ getCost(): int
+				+ getSellingPrice(): int
+				+ getProjectileClass(): Class<? extends Projectile>
+				+ getUpgradableProjectile(): ProjectileUpgradableAttribute
+				+ getCell(): Cell
+				getLaunchedProjectiles(): List<Projectile>
+				+ getAllUpgradableAttributes(): List<Tuple2<String, UpgradeableAttribute<?>>>
+				.. setters ..
+				+ setCell(c: TurretCell)
+				.. methods ..
+				+ directionFrom(p: Projectile): Vector2f
+				+ canShoot(): boolean
+				+ tick()
+				+ chooseTarget(): List<Targetable>
+				+ shoot(): List<Projectile>
+				+ isInHitRangeOf(p: Projectile): boolean
+				+ isCollidingWith(p: Projectile): boolean
+				+ toString(): String
+			}
+		}
+	}
+
+	' =====================
+	'
+	'	ROADS
+	'
+	' =====================
+	package roads{
+		class Road implements Iterable {
+			# list: DoublyLinkedList<Cell>
+			# dir: Direction
+			# exitedBloons: List<Bloon>
+			__
+			+ Road(dir: Direction)
+			+ Road()
+			.. getters ..
+			+ getBloons(): List<Bloon>
+			+ getExitedBloons(): List<Bloon>
+			+ contains(cell: Cell): boolean
+			+ getHead(): RoadTile
+			+ getTail(): RoadTile
+			+ getDir(): Direction
+			+ getDistToEnd(): int
+			.. setters..
+			+ addCell(cell: Cell)
+			+ addBloon(b: Bloon)
+			+ addBloonToExitedList(b: Bloon)
+			.. methods ..
+			+ iterator(): Iterator<RoadTile>
+			+ removeBloon(b: Bloon)
+			+ contains(cell: Cell): boolean
+			+ toString(): String
+		}
+
+		class RoadIterator implements Iterator {
+			- current: RoadTile
+			__
+			+ RoadIterator(start: RoadTile)
+			.. methods ..
+			+ hasNext(): boolean
+			+ hasPrevious(): boolean
+			+ next(): RoadTile
+			+ previous(): RoadTile
+		}
+
+		class RoadTile {
+			- distToEnd: int
+			- road: Road
+			- inputDirection: Direction
+			- outputDirection: Direction
+			__
+			+ RoadTile(cell: Cell, distToEnd: int, road: Road)
+			.. getters ..
+			+ getCell(): Cell
+			+ getDistToEnd(): int
+			+ next(): RoadTile
+			+ previous(): RoadTile
+			+ getRoad(): Road
+			.. methods ..
+			+ hasNext(): boolean
+			+ hasPrevious(): boolean
+			+ getInputDirection(): Direction
+			+ getOutputDirection(): Direction
+			+ getInputEdge(): Direction
+			+ getOutputEdge(): Direction
+			+ getPathType(): PathType
+			+ equals(o: Object): boolean
+		}
+	}
+
+	' =====================
+	'
+	'	SHOPS
+	'
+	' =====================
+	package shops {
+		class Shop {
+			+ {static} DEFAULT_INITIAL_CREDIT: int
+			- catalog: List<Class<? extends Turret>>
+			- credits: int
+			__
+			+ Shop()
+			+ Shop(initialCredits: int)
+			.. getters ..
+			+ getCredits(): int
+			+ getCatalog(): List<Class<? extends Turret>>
+			.. methods ..
+			+ addCredits(amount: int)
+			+ getTurretCost(turretClass: Class<? exntends Turret>)
+			+ canBuy(turretClass: Class<? extends Turret>): boolean
+			+ canUpgrade(upgrade: UpgradeableAttribute<?>): boolean
+			+ <T extends Turret> buyTurret(board: Board, turretClass: Class<T>, coords: Tuple2<Integer, Integer>): T
+			+ buyUpgrade(upgrade: UpgradeableAttribute<?>): int
+			+ sellTurret(turret: Turret): int
+			+ removeDuplicateTurretReferences(cell: TurretCell, turret: Turret)
+			+ sellUpgrade(upgrade: UpgradeableAttribute<?>): int
+		}
+	}
+
+	' =====================
+	'
+	'	UPGRADE
+	'
+	' =====================
+	package upgrade{
+		class FloatUpgradableAttribute extends UpgradeableAttribute {
+			# valueScaling: float
+			# valueAddition: int
+			__
+			+ FloatUpgradableAttribute(initialValue: float, valueScaling: float, valueAddition: int, initialCost: int, costScaling: float, maxLevel: int)
+			+ FloatUpgradableAttribute(initialValue: float, valueAddition: int, initialCost: int, costScaling: float, maxLevel: int)
+			+ FloatUpgradableAttribute(initialValue: float, valueScaling: float, initialCost: int, costScaling: float, maxLevel: int)
+			.. methods ..
+			# upgradeValue()
+			# downgradeValue()
+		}
+		class IntUpgradableAttribute extends UpgradeableAttribute {
+			# valueScaling: float
+			# valueAddition: int
+			__
+			+ IntUpgradableAttribute(initialValue: int, valueScaling: float, valueAddition: int, initialCost: int, costScaling: float, maxLevel: int)
+			+ IntUpgradableAttribute(initialValue: int, valueAddition: int, initialCost: int, costScaling: float, maxLevel: int)
+			+ IntUpgradableAttribute(initialValue: int, valueScaling: float, initialCost: int, costScaling: float, maxLevel: int)
+			.. methods ..
+			# upgradeValue()
+			# downgradeValue()
+		}
+		class ProjectileUpgradeableAttribute extends UpgradeableAttribute {
+			# upgrades: List<List<Class<? extends Projectile>>>
+			# upgradePath: int
+			__
+			+ ProjectileUpgradeableAttribute(initialValue: Class<? extends Projectile>, initialCost: int, costScalingFactor: float, maxLevel: int)
+			+ ProjectileUpgradeableAttribute(initialValue: Class<? extends Projectile>, initialCost: int, costScalingFactor: float)
+			.. methods ..
+			# upgradeValue()
+			# downgradeValue()
+		}
+		abstract UpgradeableAttribute {
+			# cost: int
+			# costScalingFactor: float
+			# level: int
+			# maxLevel: int
+			# value: T
+			__
+			+ UpgradeableAttribute(initialValue: T, initialCost: int, costScalingFactor: float, maxLevel: int)
+			.. getters ..
+			+ getValue(): T
+			+ getCost(): int
+			+ getTotalCost(): int
+			+ getCostScalingFactor(): float
+			+ getLevel(): int
+			+ getMaxLevel(): int
+			+ canBeUpgraded(): boolean
+			+ canBeDowngraded(): boolean
+			.. methods ..
+			# {abstract} upgradeValue()
+			# {abstract} downgradeValue()
+			+ upgrade()
+			+ downgrade()
+			+ toString(): String
+		}
+	}
+
+	' =====================
+	'
+	'	WAVES
+	'
+	' =====================
+	package waves {
+		class Wave {
+			- {final} number: Integer
+			- {finel} bloonCounts: Map<Class<? extends Bloon>, Integer>
+			- {finel} totalBloons: Integer
+			- {finel} threatScore: Integer
+			- {finel} eliteWave: boolean
+			__
+			+ Wave(number: Integer, bloonCounts: Map<Class<? extends Bloon>, Integer>, threatScore: Integer, eliteWave: boolean)
+			.. getters ..
+			+ getNumber(): Integer
+			+ getBloonCounts(): Map<Class<? extends Bloon>, Integer>
+			+ getTotalBloons(): Integer
+			+ getThreatScore(): Integer
+			+ isEliteWave(): boolean
+			.. methods ..
+			+ spawnOn(board: Board)
+			+ toString(): String
+		}
+
+		class WaveGenerator {
+			__
+			.. methods ..
+			+ generate(waveNumber: Integer, board: Board): Wave
+			- computeTotalBloons(waveNumber: Integer, board: Board, eliteWave: boolean)
+			- LinkedHashMap<Class<? extends Bloon>, Integer> distribute(total: Integer, classes: Class[], weights: double[])
+			- rebalance(counts: Map<Class<? extends Bloon>, Integer>, total: Integer, fallback: Class<? extends Bloon>)
+		}
+	}
+}
+' RoadTile extends Node, arrow pointing up
+RoadTile -u-|> utils.datastructures.Node
+
+@enduml

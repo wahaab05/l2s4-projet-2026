@@ -1,0 +1,52 @@
+@startuml "new_projectile" 
+
+' =====================
+'	PROJECTILES
+' =====================
+
+abstract game.objects.projectiles.Projectile extends game.objects.GameObject{
+	# name: String
+	# damage: int
+	# speed: float
+	# target: Targetable
+	__
+	+ Projectile(name: String, coords: Vector2f, damage: int, speed: float, range: float, target : Targetable)
+	.. getters ..
+	+ getName(): String
+	+ getDamage(): int
+	+ getSpeed(): float
+    + getTarget(): Targetable
+	.. methods ..
+    + hasTargetInRange : boolean
+	+ moveProjectile(): void
+	+ applyEffect(): void
+    + applyEffect(bloon : Bloon) : void
+    + canApply(): boolean
+	{abstract} reachedTarget(): boolean
+}
+
+class game.objects.projectiles.SingleEffectProjectile extends game.objects.projectiles.Projectile implements game.objects.projectiles.Targeting{
+    + setBloonsInRange(board: Board) : void
+	}
+
+class game.objects.projectiles.AreaOfEffectProjectile extends game.objects.projectiles.Projectile{
+	# range: float
+	}
+class game.objects.projectiles.TargetAreaProjectile extends game.objects.projectiles.AreaOfEffectProjectile implements game.objects.projectiles.Targeting{
+
+	}
+class game.objects.projectiles.DirectionAreaProjectile extends game.objects.projectiles.AreaOfEffectProjectile implements game.objects.projectiles.Directioning{
+
+	}
+interface game.objects.projectiles.Targeting {
+    + setBloonsInRange(board: Board) : void
+	+ canApply(): boolean
+	}
+interface game.objects.projectiles.Directioning {
+    + setBloonsInRange(board: Board) : void
+	+ canApply(): boolean
+	}
+
+
+
+@enduml

@@ -1,0 +1,475 @@
+package game;
+
+import game.boards.Board;
+import game.boards.MultiPathBoard;
+import game.displays.CLI.StylizedDisplay;
+import game.displays.Display;
+import game.objects.bloons.Bloon;
+import game.objects.bloons.templates.BlueBloon;
+import game.objects.bloons.templates.GreenBloon;
+import game.objects.bloons.templates.RedBloon;
+import game.objects.bloons.templates.YellowBloon;
+import game.objects.turrets.Turret;
+import game.roads.Road;
+import game.shops.Shop;
+import game.upgrade.UpgradeType;
+import utils.datastructures.Tuple2;
+import utils.maths.RandomUtils;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Scanner;
+
+/**
+ * Livrable 4b.
+ *
+ * Terminal program based on the multi-path board.
+ * The player can buy, upgrade and sell turrets between waves,
+ * then launch the next wave.
+ */
+public class Livrable4b
+{
+	/** Initial number of life points given to the player. */
+	private static final int INITIAL_LIFE = 20;
+
+	/** Reward granted for each bloon destroyed during a wave. */
+	private static final int REWARD_PER_DESTROYED_BLOON = 10;
+
+	/**
+	 * Prints the help message and stops the program.
+	 */
+	public static void help()
+	{
+		System.out.println("Usage: Livrable4b <width:int> <height:int> <nbChemins:int>");
+		System.exit(1);
+	}
+
+	/**
+	 * Reads an integer from the terminal.
+	 *
+	 * @param scan scanner used to read user input
+	 * @param prompt message displayed before reading
+	 * @return parsed integer
+	 */
+	private static int readInt(Scanner scan, String prompt)
+	{
+		while(true)
+		{
+			System.out.print(prompt);
+			String line = scan.nextLine();
+
+			try {
+				return Integer.parseInt(line.trim());
+			} catch(NumberFormatException e) {
+				System.out.println("Entrée invalide, veuillez saisir un entier.");
+			}
+		}
+	}
+
+	/**
+	 * Displays the current state of the game, including the current wave,
+	 * remaining life points, available credits and number of placed turrets.
+	 *
+	 * @param game current game instance
+	 * @param shop current shop
+	 * @param wave current wave number
+	 */
+	private static void printStatus(Game game, Shop shop, int wave)
+	{
+		System.out.println("\n==================== ÉTAT DE LA PARTIE ====================");
+		System.out.println("Wave          : " + wave);
+		System.out.println("Vie restante  : " + game.getLife());
+		System.out.println("Crédits       : " + shop.getCredits());
+		System.out.println("Tourelles     : " + game.getBoard().getTurrets().size());
+		System.out.println("===========================================================\n");
+	}
+
+	/**
+	 * Displays the current content of the shop catalog.
+	 *
+	 * @param shop shop to inspect
+	 */
+	private static void printCatalog(Shop shop)
+	{
+		System.out.println("\nCatalogue de la boutique :");
+
+		List<Class<? extends Turret>> catalog = shop.getCatalog();
+		for(int i = 0; i < catalog.size(); i++)
+		{
+			Class<? extends Turret> turretClass = catalog.get(i);
+			System.out.println("  [" + i + "] " + turretClass.getSimpleName()
+					+ " - coût: " + shop.getTurretCost(turretClass));
+		}
+
+		System.out.println();
+	}
+
+	/**
+	 * Displays all turrets currently placed on the board.
+	 *
+	 * @param board board to inspect
+	 */
+	private static void printPlacedTurrets(Board board)
+	{
+		List<Turret> turrets = board.getTurrets();
+
+		System.out.println("\nTourelles placées :");
+		if(turrets.isEmpty())
+		{
+			System.out.println("  Aucune tourelle placée.\n");
+			return;
+		}
+
+		for(int i = 0; i < turrets.size(); i++)
+		{
+			Turret t = turrets.get(i);
+
+			System.out.println("  [" + i + "] " + t.getClass().getSimpleName()
+					+ " @(" + t.getCell().getX() + "," + t.getCell().getY() + ")"
+					+ " | coût=" + t.getCost()
+					+ " | vente=" + t.getSellingPrice()
+					+ " | projectile=" + t.getProjectileClass().getSimpleName()
+					+ " | upgrades=" + t.getUpgrades().size());
+		}
+
+		System.out.println();
+	}
+
+	/**
+	 * Asks the user to choose one of the turrets currently placed on the board.
+	 *
+	 * @param board board containing the turrets
+	 * @param scan scanner used to read input
+	 * @return selected turret, or null if the choice is invalid
+	 */
+	private static Turret choosePlacedTurret(Board board, Scanner scan)
+	{
+		List<Turret> turrets = board.getTurrets();
+
+		if(turrets.isEmpty())
+		{
+			System.out.println("Aucune tourelle disponible.");
+			return null;
+		}
+
+		printPlacedTurrets(board);
+		int index = readInt(scan, "Choisissez l'indice de la tourelle : ");
+
+		if(index < 0 || index >= turrets.size())
+		{
+			System.out.println("Indice de tourelle invalide.");
+			return null;
+		}
+
+		return turrets.get(index);
+	}
+
+	/**
+	 * Handles the purchase and placement of a turret.
+	 *
+	 * @param board board on which the turret must be placed
+	 * @param shop shop used to buy the turret
+	 * @param scan scanner used to read input
+	 */
+	private static void handleBuyTurret(Board board, Shop shop, Scanner scan)
+	{
+		printCatalog(shop);
+
+		int turretIndex = readInt(scan, "Choisissez l'indice de la tourelle à acheter : ");
+		List<Class<? extends Turret>> catalog = shop.getCatalog();
+
+		if(turretIndex < 0 || turretIndex >= catalog.size())
+		{
+			System.out.println("Indice de tourelle invalide.");
+			return;
+		}
+
+		int x = readInt(scan, "Coordonnée x : ");
+		int y = readInt(scan, "Coordonnée y : ");
+
+		try {
+			Turret t = shop.buyTurret(board, catalog.get(turretIndex), new Tuple2<>(x, y));
+			System.out.println("Tourelle achetée et placée : "
+					+ t.getClass().getSimpleName()
+					+ " en (" + x + "," + y + ")");
+		} catch(Exception e) {
+			System.out.println("Achat impossible : " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Handles the upgrade of a placed turret.
+	 *
+	 * @param board board containing the turret
+	 * @param shop shop used to buy the upgrade
+	 * @param scan scanner used to read input
+	 */
+	private static void handleUpgradeTurret(Board board, Shop shop, Scanner scan)
+	{
+		Turret turret = choosePlacedTurret(board, scan);
+		if(turret == null)
+			return;
+
+		System.out.println("Upgrades possibles :");
+		UpgradeType[] values = UpgradeType.values();
+
+		for(int i = 0; i < values.length; i++)
+		{
+			UpgradeType type = values[i];
+			String state = turret.hasUpgrade(type)
+					? "déjà appliquée"
+					: ("coût=" + shop.getUpgradeCost(turret, type));
+
+			System.out.println("  [" + i + "] " + type + " - " + state);
+		}
+
+		int choice = readInt(scan, "Choisissez l'indice de l'upgrade : ");
+
+		if(choice < 0 || choice >= values.length)
+		{
+			System.out.println("Indice d'upgrade invalide.");
+			return;
+		}
+
+		try {
+			int price = shop.buyUpgrade(turret, values[choice]);
+			System.out.println("Upgrade appliquée sur "
+					+ turret.getClass().getSimpleName()
+					+ " pour " + price + " crédits.");
+		} catch(Exception e) {
+			System.out.println("Upgrade impossible : " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Handles the sale of a placed turret.
+	 *
+	 * @param board board containing the turret
+	 * @param shop shop used to sell the turret
+	 * @param scan scanner used to read input
+	 */
+	private static void handleSellTurret(Board board, Shop shop, Scanner scan)
+	{
+		Turret turret = choosePlacedTurret(board, scan);
+		if(turret == null)
+			return;
+
+		try {
+			int refund = shop.sellTurret(turret);
+
+			/*
+			 * The shop removes the turret from its cell.
+			 * We also remove it from the board list to keep the board state coherent.
+			 */
+			board.getTurrets().remove(turret);
+
+			System.out.println("Tourelle vendue : remboursement de " + refund + " crédits.");
+		} catch(Exception e) {
+			System.out.println("Vente impossible : " + e.getMessage());
+		}
+	}
+
+	/**
+	 * Spawns one random bloon on each road of the board.
+	 *
+	 * This keeps the spirit of Livrable3b while allowing repeated waves.
+	 *
+	 * @param board board on which the wave is spawned
+	 * @return list of bloons created for the wave
+	 */
+	private static List<Bloon> spawnWave(Board board)
+	{
+		List<Class<? extends Bloon>> bloonClasses = Arrays.asList(
+				RedBloon.class,
+				BlueBloon.class,
+				GreenBloon.class,
+				YellowBloon.class
+		);
+
+		List<Bloon> spawned = new ArrayList<>();
+
+		for(Road road : board.getRoads())
+		{
+			Class<? extends Bloon> bloonClass = bloonClasses.get(
+					RandomUtils.randInt(0, bloonClasses.size())
+			);
+
+			Bloon bloon = Bloon.createBloon(bloonClass, road.getHead());
+			if(bloon != null)
+				spawned.add(bloon);
+		}
+
+		return spawned;
+	}
+
+	/**
+	 * Rewards the player for bloons destroyed during the wave.
+	 *
+	 * In the project subject, a destroyed bloon gives credits.
+	 * Since the current engine does not yet centralize this reward,
+	 * it is computed at the end of the wave here.
+	 *
+	 * @param shop shop receiving the credits
+	 * @param waveBloons bloons spawned during the wave
+	 */
+	private static void rewardDestroyedBloons(Shop shop, List<Bloon> waveBloons)
+	{
+		int reward = 0;
+
+		for(Bloon bloon : waveBloons)
+		{
+			if(bloon.isDead())
+				reward += REWARD_PER_DESTROYED_BLOON;
+		}
+
+		if(reward > 0)
+		{
+			shop.addCredits(reward);
+			System.out.println("Récompense de fin de vague : +" + reward + " crédits.");
+		}
+	}
+
+	/**
+	 * Plays the current wave until there are no bloons left on the board
+	 * or the player has no life remaining.
+	 *
+	 * This method is used instead of {@code Game.play()} so that the terminal
+	 * program can launch several waves in the same execution.
+	 *
+	 * @param game current game instance
+	 */
+	private static void playCurrentWave(Game game)
+	{
+		int ticks = 0;
+
+		for(Display d : game.getDisplays())
+			d.display();
+
+		while(game.getLife() > 0 && game.getBoard().hasBloonsLeft())
+		{
+			if(ticks > 0 && ticks % 20 == 0)
+			{
+				for(Display d : game.getDisplays())
+					d.display();
+			}
+
+			game.tick();
+			ticks++;
+
+			try {
+				Thread.sleep(Math.max(1, 1000 / game.getGoalTickRate()));
+			} catch(InterruptedException e) {
+				Thread.currentThread().interrupt();
+				break;
+			}
+		}
+
+		for(Display d : game.getDisplays())
+			d.display();
+	}
+
+	/**
+	 * Main method of Livrable4b.
+	 *
+	 * @param args program arguments:
+	 *             width, height and number of roads
+	 */
+	public static void main(String[] args)
+	{
+		if(args.length < 3)
+			help();
+
+		int width;
+		int height;
+		int nbRoads;
+
+		try {
+			width = Integer.parseInt(args[0]);
+			height = Integer.parseInt(args[1]);
+			nbRoads = Integer.parseInt(args[2]);
+		} catch(NumberFormatException e) {
+			help();
+			return;
+		}
+
+		Board board = new MultiPathBoard(width, height, nbRoads);
+
+		Game.setInstance(INITIAL_LIFE, board);
+		Game game = Game.instance();
+		game.addDisplay(StylizedDisplay.class);
+
+		Shop shop = new Shop();
+		Scanner scan = new Scanner(System.in);
+
+		int wave = 1;
+		boolean running = true;
+
+		while(running && game.getLife() > 0)
+		{
+			printStatus(game, shop, wave);
+
+			System.out.println("Menu :");
+			System.out.println("  [1] Afficher l'état");
+			System.out.println("  [2] Afficher le catalogue");
+			System.out.println("  [3] Acheter une tourelle");
+			System.out.println("  [4] Améliorer une tourelle");
+			System.out.println("  [5] Vendre une tourelle");
+			System.out.println("  [6] Afficher les tourelles placées");
+			System.out.println("  [7] Lancer la vague");
+			System.out.println("  [0] Quitter");
+
+			int choice = readInt(scan, "Votre choix : ");
+
+			switch(choice)
+			{
+				case 1:
+					printStatus(game, shop, wave);
+					break;
+
+				case 2:
+					printCatalog(shop);
+					break;
+
+				case 3:
+					handleBuyTurret(board, shop, scan);
+					break;
+
+				case 4:
+					handleUpgradeTurret(board, shop, scan);
+					break;
+
+				case 5:
+					handleSellTurret(board, shop, scan);
+					break;
+
+				case 6:
+					printPlacedTurrets(board);
+					break;
+
+				case 7:
+					List<Bloon> waveBloons = spawnWave(board);
+					System.out.println("\nLancement de la vague " + wave + "...");
+					playCurrentWave(game);
+					rewardDestroyedBloons(shop, waveBloons);
+					wave++;
+					break;
+
+				case 0:
+					running = false;
+					break;
+
+				default:
+					System.out.println("Choix invalide.");
+			}
+		}
+
+		System.out.println();
+		if(game.getLife() <= 0)
+			System.out.println("Partie terminée : le joueur n'a plus de vie.");
+		else
+			System.out.println("Fin de Livrable4b.");
+
+		scan.close();
+	}
+}

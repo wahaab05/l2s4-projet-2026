@@ -1,0 +1,56 @@
+@startuml "old_projectile" 
+
+' =====================
+'	PROJECTILES
+' =====================
+
+abstract game.objects.projectiles.Projectile {
+	# name: String
+	# coords: Vector2f
+	# damage: int
+	# speed: float
+	# direction: Vector2f
+	# bloonsInRange: List<Tuple<float, Bloon>>
+	__
+	+ Projectile(name: String, coords: Vector2f, damage: int, speed: float)
+	.. getters ..
+	+ getName(): String
+	+ getDamage(): int
+	+ getSpeed(): float
+	.. methods ..
+	+ moveProjectile(): void
+	# updateDirection(): void
+	+ {abstract} applyDamage(): void
+	+ {abstract} hasBloonInRange(): boolean
+}
+
+class game.objects.projectiles.TargetProjectile extends game.objects.projectiles.Projectile {
+	# mainTarget: Bloon
+	__
+	TargetProjectile(target: Bloon)
+	.. methods ..
+	# updateDirection(): void
+	+ applyDamage(): void
+	+ hasBloonInRange(): boolean
+}
+
+class game.objects.projectiles.DirectionProjectile extends game.objects.projectiles.Projectile {
+	# lifeSpan: int
+	__
+	DirectionProjectile(direction: Vector2f)
+	.. methods ..
+	+ applyDamage(): void
+	+ hasBloonInRange(): boolean
+}
+
+class game.objects.projectiles.AreaProjectile extends game.objects.projectiles.TargetProjectile {
+	# range: float
+	__
+	AreaProjectile(target: Bloon, range: float)
+	.. methods ..
+	+ applyDamage(): void
+}
+
+
+
+@enduml
