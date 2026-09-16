@@ -388,7 +388,6 @@ Plusieurs évolutions peuvent encore être envisagées :
 
 ## Contexte
 
-Ce projet a été réalisé en équipe dans le cadre de la deuxième année de licence informatique à l’Université de Lille.
 
 L’objectif était de réaliser progressivement un jeu complet en suivant plusieurs livrables, tout en appliquant les bonnes pratiques de conception, de test et de collaboration.
 
